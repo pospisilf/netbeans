@@ -113,6 +113,7 @@ public class LSPBindings {
     private static final Map<LSPBindings,Long> lspKeepAlive = new IdentityHashMap<>();
     private static final Map<URI, Map<String, ServerDescription>> project2MimeType2Server = new HashMap<>();
     private static final Map<FileObject, Map<String, LSPBindings>> workspace2Extension2Server = new HashMap<>();
+    
 
     static {
         //Don't perform null checks. The servers may not adhere to the specification, and send illegal nulls.
@@ -301,6 +302,7 @@ public class LSPBindings {
                     InputStream in = LanguageServerProviderAccessor.getINSTANCE().getInputStream(desc);
                     OutputStream out = LanguageServerProviderAccessor.getINSTANCE().getOutputStream(desc);
                     Process p = LanguageServerProviderAccessor.getINSTANCE().getProcess(desc);
+                    Object initOpt = LanguageServerProviderAccessor.getINSTANCE().getInitOptions(desc);
                     Launcher<LanguageServer> launcher = new LSPLauncher.Builder<LanguageServer>()
                                                                        .setLocalService(lci)
                                                                        .setRemoteInterface(LanguageServer.class)
@@ -320,7 +322,7 @@ public class LSPBindings {
                     }).create();
                     launcher.startListening();
                     LanguageServer server = launcher.getRemoteProxy();
-                    InitializeResult result = initServer(p, server, dir); //XXX: what if a different root is expected????
+                    InitializeResult result = initServer(p, server, dir, initOpt); //XXX: what if a different root is expected????
                     b = new LSPBindings(server, result, LanguageServerProviderAccessor.getINSTANCE().getProcess(desc));
                     // Register cleanup via LSPReference#run
                     new LSPReference(b, Utilities.activeReferenceQueue());
@@ -359,7 +361,7 @@ public class LSPBindings {
                 });
                 launcher.startListening();
                 LanguageServer server = launcher.getRemoteProxy();
-                InitializeResult result = initServer(null, server, root);
+                InitializeResult result = initServer(null, server, root, null);
                 LSPBindings bindings = new LSPBindings(server, result, null);
 
                 lc.setBindings(bindings);
@@ -377,7 +379,7 @@ public class LSPBindings {
     }
 
     @SuppressWarnings("deprecation")
-    private static InitializeResult initServer(Process p, LanguageServer server, FileObject root) throws InterruptedException, ExecutionException {
+    private static InitializeResult initServer(Process p, LanguageServer server, FileObject root, Object initOptions) throws InterruptedException, ExecutionException {
        InitializeParams initParams = new InitializeParams();
        initParams.setRootUri(Utils.toURI(root));
        final File rootFile = FileUtil.toFile(root);
@@ -397,7 +399,13 @@ public class LSPBindings {
        wcc.getWorkspaceEdit().setResourceOperations(Arrays.asList(ResourceOperationKind.Create, ResourceOperationKind.Delete, ResourceOperationKind.Rename));
        SymbolCapabilities sc = new SymbolCapabilities(new SymbolKindCapabilities(Arrays.asList(SymbolKind.values())));
        wcc.setSymbol(sc);
-       initParams.setCapabilities(new ClientCapabilities(wcc, tdcc, null));
+       initParams.setCapabilities(new ClientCapabilities(wcc, tdcc, null));      
+            
+       if(initOptions != null){
+           initParams.setInitializationOptions(initOptions);
+       }
+       System.out.println(initParams.toString());
+       
        CompletableFuture<InitializeResult> initResult = server.initialize(initParams);
        while (true) {
            try {
@@ -411,6 +419,7 @@ public class LSPBindings {
            }
        }
     }
+    
     private static final List<String> KNOWN_TOKEN_TYPES = Collections.unmodifiableList(Arrays.asList(
             "namespace", "package", "function", "method", "macro", "parameter",
             "variable", "struct", "enum", "class", "typeAlias", "typeParameter",
@@ -596,3 +605,4 @@ public class LSPBindings {
         public Set<String> mimeTypes;
     }
 }
+

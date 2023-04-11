@@ -57,18 +57,36 @@ public interface LanguageServerProvider {
          * @return an instance of LanguageServerDescription
          */
         public static @NonNull LanguageServerDescription create(@NonNull InputStream in, @NonNull OutputStream out, @NullAllowed Process process) {
-            return new LanguageServerDescription(in, out, process);
+            return new LanguageServerDescription(in, out, process, null);
+        }
+        
+        /**
+         * Create the description of a running language server.
+         * 
+         * @param in the InputStream that should be used to communicate with the server
+         * @param out the OutputStream that should be used to communicate with the server
+         * @param process the process of the running language server, or null if none
+         * @param initOptions the initialization options passed to LSP server.
+         * @return 
+         */
+        public static @NonNull LanguageServerDescription create(@NonNull InputStream in, @NonNull OutputStream out, @NullAllowed Process process, @NullAllowed Object initOptions) {
+            return new LanguageServerDescription(in, out, process, initOptions);
         }
 
         private final InputStream in;
         private final OutputStream out;
         private final Process process;
         private LSPBindings bindings;
-
-        private LanguageServerDescription(InputStream in, OutputStream out, Process process) {
+        private Object initOptions;
+        
+        private LanguageServerDescription(InputStream in, OutputStream out, Process process, Object initOptions) {
             this.in = in;
             this.out = out;
             this.process = process;
+            
+            if (initOptions != null){
+                this.initOptions = initOptions;
+            }
         }
 
         static {
@@ -97,6 +115,16 @@ public interface LanguageServerProvider {
                 public void setBindings(LanguageServerDescription desc, LSPBindings bindings) {
                     desc.bindings = bindings;
                 }
+                
+                @Override
+                public Object getInitOptions(LanguageServerDescription desc){
+                    return desc.initOptions;
+                }   
+                
+                @Override
+                public void setInitOptions(LanguageServerDescription desc, Object initOptions){
+                    desc.initOptions = initOptions;
+                }     
             });
         }
 
